@@ -1,0 +1,12 @@
+{
+	"reference_path": {
+		"hg19": "~/bulk/datasets/reference_genomes/hg19/chrAll.fa.gz",
+		"mm9": "~/bulk/datasets/reference_genomes/mm9/chrAll.fa.gz",
+		"mm10": "~/bulk/datasets/reference_genomes/mm10/chrAll.fa.gz"
+	},
+	"bwa_index":{
+		"hg19": "~/bulk/datasets/reference_genomes/hg19/bwa",
+		"mm9": "~/bulk/datasets/reference_genomes/mm9/bwa",
+		"mm10": "~/bulk/datasets/reference_genomes/mm10/bwa"
+	}
+}
