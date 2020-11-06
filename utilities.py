@@ -338,7 +338,8 @@ def load_dataset(vp_info_lst, target_field='frg_np', data_path='./datasets', ver
 
         # load from hdf5
         with h5py.File(tsv_fname, 'r') as h5_fid:
-            header_lst = list(h5_fid[target_field + '_header_lst'][()])
+            # header_lst = list(h5_fid[target_field + '_header_lst'][()]) python2
+            header_lst = [hdr.decode() for hdr in h5_fid[target_field + '_header_lst']]
             frg_prt = pd.DataFrame(h5_fid[target_field][()], columns=header_lst)
 
         # only preserve requested columns
