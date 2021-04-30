@@ -1,3 +1,8 @@
+# Introduction
+PLIER is a simple yet powerful framework to identify regions in the genome with more than expected coverage. This coverage can be defined as a typical mapping depth of reads mapping to the reference genome, or number of independent ligation-products captured in a proximity-ligation dataset.
+[![DOI](https://zenodo.org/badge/300543907.svg)](https://zenodo.org/badge/latestdoi/300543907)
+
+
 # How to use PLIER
 
 ## Pipeline requirements:
