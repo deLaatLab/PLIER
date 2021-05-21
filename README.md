@@ -52,7 +52,11 @@ actual application of PLIER, the user should update this file according to the d
 2. For FFPE-TLC experiments:
    1. Aligning sequenced reads: We recommend to use BWA-MEM using the following command template (`hg19` in this case):
       ```
-      bwa mem -SP -t6 -k12 -A2 -B3 reference_index_hg19_bwa ./fastqs/test_seqrun/FXXX_R1.fastq.gz ./fastqs/test_seqrun/FXXX_R2.fastq.gz | samtools sort -n | samtools view -h -q1 -b - > ./bams/test_seqrun/FXXX.bam"
+      bwa mem -SP -t6 -k12 -A2 -B3 reference_index_hg19_bwa \ 
+            ./fastqs/test_seqrun/FXXX_R1.fastq.gz \
+            ./fastqs/test_seqrun/FXXX_R2.fastq.gz | \
+            samtools sort -n | \
+            samtools view -h -q1 -b - > ./bams/test_seqrun/FXXX.bam"
       ```
       **Notes:** 
          - No alignment is needed to go thorough the "test" example. The FASTQ files are already aligned and stored in
@@ -106,6 +110,9 @@ We also provided scripts that can be used to process FFPE-4C experiments. This c
    4. Storing the alignments in an HDF5 container: './02_make_dataset.py'
    5. Calculating the enrichment scores: `./04_compute_enrichment_scores.py`
 
+
+## Example datasets:
+The meta-data required to run this example is stored in `./vp_info.tsv` file within the repository.
 
 ## Contact & Questions
 For any inquiry please contact Amin Allahyar at a{DOT}allahyar{AT}hubrecht{DOT}eu.
