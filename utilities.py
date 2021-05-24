@@ -8,6 +8,8 @@ import pandas as pd
 def overlap(que_item, ref_lst, include_ref_left=False, include_ref_right=False, offset=0):
     if isinstance(que_item, list):
         que_item = np.array(que_item)
+    if isinstance(ref_lst, list):
+        ref_lst = np.array(ref_lst)
     que_dim = que_item.shape[0]
     [n_ref, ref_dim] = np.shape(ref_lst)
     if (que_dim != ref_dim) or (que_item.ndim != 1):
@@ -33,6 +35,7 @@ def overlap(que_item, ref_lst, include_ref_left=False, include_ref_right=False, 
 
 
 def get_chr_info(genome, property='chr_name'):
+    # chr size: https://hgdownload.cse.ucsc.edu/goldenPath/hg38/bigZips/hg38.chrom.sizes
     chr_details = dict({
         'hg19': dict({
             'chr_name': [
@@ -42,8 +45,20 @@ def get_chr_info(genome, property='chr_name'):
             ],
             'chr_size': [
                 249250621, 243199373, 198022430, 191154276, 180915260, 171115067, 159138663, 146364022, 141213431, 135534747,
-                135006516, 133851895, 115169878, 107349540, 102531392, 90354753, 81195210, 78077248, 59128983, 63025520, 48129895, 51304566,
-                155270560, 59373566, 16571
+                135006516, 133851895, 115169878, 107349540, 102531392, 90354753, 81195210, 78077248, 59128983, 63025520, 48129895,
+                51304566, 155270560, 59373566, 16571
+            ]
+        }),
+        'hg38': dict({
+            'chr_name': [
+                'chr1', 'chr2', 'chr3', 'chr4', 'chr5', 'chr6', 'chr7', 'chr8', 'chr9',
+                'chr10', 'chr11', 'chr12', 'chr13', 'chr14', 'chr15', 'chr16', 'chr17', 'chr18',
+                'chr19', 'chr20', 'chr21', 'chr22', 'chrX', 'chrY', 'chrM'
+            ],
+            'chr_size': [
+                248956422, 242193529, 198295559, 190214555, 181538259, 170805979, 159345973, 145138636, 138394717,
+                133797422, 135086622, 133275309, 114364328, 107043718, 101991189, 90338345, 83257441, 80373285,
+                58617616, 64444167, 46709983, 50818468, 156040895, 57227415, 16569
             ]
         }),
         'mm9': dict({
@@ -101,69 +116,6 @@ def get_re_info(re_name='DpnII', property='seq', genome=None, re_path='./renzs/'
         return re_details[re_name][property]
 
 
-def showprogress(iter, n_iter, n_step=10, output_format='{:1.0f}%, '):
-    iter = iter + 1
-    if ((iter % (n_iter / float(n_step))) - ((iter - 1) % (n_iter / float(n_step))) < 0) or (n_iter / float(n_step) <= 1):
-        if iter != n_iter:
-            print(output_format.format(iter * 100 / n_iter)),
-        else:
-            print(output_format.format(iter * 100 / n_iter))
-
-
-def accum_array(group_idx, arr, func=None, default_value=None, min_n_group=None, rebuild_index=False):
-    """groups a by indices, and then applies func to each group in turn.
-    e.g. func example: [func=lambda g: g] or [func=np.sum] or None for speed
-    based on https://github.com/ml31415/numpy-groupies
-    """
-
-    if rebuild_index:
-        group_idx = np.unique(group_idx.copy(), return_inverse=True)[1]
-    if not min_n_group:
-        min_n_group = np.max(group_idx) + 1
-
-    counts = np.bincount(group_idx, minlength=min_n_group)
-    order_group_idx = np.argsort(group_idx, kind='mergesort')
-
-    if isinstance(arr, np.ndarray):
-        groups = np.split(arr[order_group_idx], np.cumsum(counts)[:-1], axis=0)
-    else:  # If arr is a Pandas DataFrame
-        groups = np.split(arr.loc[order_group_idx,:], np.cumsum(counts)[:-1], axis=0)
-
-    if func:
-        ret = [default_value] * min_n_group
-        for i, grp in enumerate(groups):
-            if len(grp) > 0:
-                ret[i] = func(grp)
-        return ret
-    else:
-        return groups
-
-
-def mapEx(list_idx, arr, func=None, default_value=None):
-    ret = [default_value] * len(list_idx)
-    for i, set_idx in enumerate(list_idx):
-        if len(set_idx) > 0:
-            ret[i] = func(arr[set_idx])
-    return ret
-
-
-def color_stdout(message, color_name='red'):
-    END = '\033[0m'
-    clr_dict = {
-        'purple': '\033[95m',
-        'cyan': '\033[96m',
-        'dark_cyan': '\033[36m',
-        'blue': '\033[94m',
-        'green': '\033[92m',
-        'yellow': '\033[93m',
-        'red': '\033[91m',
-        'bold': '\033[1m',
-        'underline': '\033[4m'
-    }
-
-    return clr_dict[color_name] + message + END
-
-
 def flatten(nested_lst):
     out_lst = []
     for item in nested_lst:
@@ -172,56 +124,6 @@ def flatten(nested_lst):
         else:
             out_lst.append(item)
     return out_lst
-
-
-def group_by_bin_overlap(reads, bins):
-    assert reads.ndim == 1
-    assert bins.shape[1] == 2
-    bin_w = bins[0, 1] - bins[0, 0]
-    n_bin = bins.shape[0]
-    n_read = reads.shape[0]
-    assert np.unique(bins[:, 1] - bins[:, 0]) == bin_w
-    assert np.array_equal(bins[1:, 0] - bin_w / 2, bins[:-1, 0])
-    # assert np.max(reads) <= np.max(bins) # this code does not work if bins are smaller than maximum coordinate ###
-    # make sure bins are sorted
-
-    # calculate edge overlaps
-    edge_lst = np.unique(bins)
-    ovl_nid = np.digitize(reads, edge_lst) - 1
-    ovl_nid[reads > np.max(edge_lst)] = -1
-
-    # filling groups
-    groups = [None] * n_bin
-    idx_be = 0
-    idx_en = 0
-    idx_lst = np.arange(n_read)
-    for bi in range(n_bin):
-        while edge_lst[idx_be] < bins[bi, 0]:
-            idx_be += 1
-        while edge_lst[idx_en + 1] < bins[bi, 1]:
-            idx_en += 1
-        ovl_be = np.searchsorted(ovl_nid, idx_be, side='left')
-        ovl_en = np.searchsorted(ovl_nid, idx_en, side='right')
-        groups[bi] = idx_lst[ovl_be:ovl_en]
-
-        # test
-        # has_ol = np.where((edge_lst >= bins[bi, 0]) & (edge_lst < bins[bi, 1]))[0]
-        # assert np.array_equal(np.where(np.isin(ovl_nid, has_ol))[0], groups[bi])
-
-    # test
-    # for bi in range(n_bin):
-    #     is_sel = (reads >= bins[bi, 0]) & (reads < bins[bi, 1])
-    #     assert np.array_equal(np.where(is_sel)[0], groups[bi])
-
-    return groups
-
-
-def get_marker_lst():
-    mrk_lst = ['.', ',', 'o', 'v', '^', '<', '>',
-               '1', '2', '3', '4', '8', 's', 'p', 'P',
-               '*', 'h', 'H', '+', 'x', 'X', 'D', 'd',
-               '|', '_', 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    return mrk_lst
 
 
 def extract_re_positions(genome, re_name_lst, output_fname=None, ref_fasta=None):
@@ -278,38 +180,11 @@ def extract_re_positions(genome, re_name_lst, output_fname=None, ref_fasta=None)
     np.savez(output_fname, pos_lst=re_pos_lst, type_lst=re_type_lst, chr_lst=chr_observed, genome=genome, scan_regex=re_regex)
 
 
-def stable_unique(arr, return_index=False, axis=None):
-    unq, inv, idx = np.unique(arr, return_index=True, return_inverse=True, axis=axis)
-    srt_idx = np.argsort(inv)
-    if return_index:
-        inv[srt_idx] = range(len(inv))
-        return unq[srt_idx], inv[idx]
-    else:
-        return unq[srt_idx]
-
-
-def get_fasta_sequence(genome, chromosome, pos_start, pos_end):
-    from urllib.request import urlopen
-    from xml.etree import ElementTree
-
-    message = 'http://genome.ucsc.edu/cgi-bin/das/{:s}/dna?segment={:s}:{:d},{:d}'.format(
-            genome, chromosome, pos_start, pos_end)
-    response_xml = urlopen(message)
-    html = response_xml.read()  # I'm going to assume a safe XML here
-    response_tree = ElementTree.fromstring(html)
-    return response_tree[0][0].text.replace('\n', '').replace('\r', '')
-
-
-def seq_complement(seq):
-    trans_tbl = str.maketrans('TCGAtcga', 'AGCTagct')
-    return seq.translate(trans_tbl)
-
-
-def get_vp_info(run_id):
-    vpi_lst = pd.read_csv('./vp_info.tsv', delimiter='\t', comment='#')  # , skip_blank_lines=False
+def get_vp_info(run_id, vp_info_path='./vp_info.tsv'):
+    vpi_lst = pd.read_csv(vp_info_path, delimiter='\t', comment='#')  # , skip_blank_lines=False
     if isinstance(run_id, str):
         run_id = np.where(vpi_lst['run_id'] == run_id)[0]
-        assert len(run_id) == 1
+        assert len(run_id) == 1, 'Error: Non-unique experiment is identified!'
         run_id = int(run_id[0])
     vp_info = vpi_lst.iloc[run_id].to_dict()
     vp_info['row_index'] = run_id
@@ -321,7 +196,7 @@ def get_vp_info(run_id):
 def load_dataset(vp_info_lst, target_field='frg_np', data_path='./datasets', verbose=True, vp_width=None,
                  load_cols=('chr', 'pos', '#read')):
     import h5py
-    import gc
+    import os
 
     if not isinstance(vp_info_lst, list):
         vp_info_lst = [vp_info_lst]
@@ -330,16 +205,16 @@ def load_dataset(vp_info_lst, target_field='frg_np', data_path='./datasets', ver
     if verbose:
         print('Loading data from:')
     for vp_idx, vp_info in enumerate(vp_info_lst):
-        tsv_fname = '{:s}/{:s}/{:s}.hdf5'.format(data_path, vp_info['seqrun_id'], vp_info['original_name'])
+        h5_fpath = os.path.join(data_path, vp_info['expr_id'] + '.hdf5')
         if verbose:
-            print('\t#{:d}: [{:d}: {:s}]: {:s}'.format(vp_idx + 1, vp_info['row_index'], vp_info['run_id'], tsv_fname))
+            print('\t#{:d}: [{:d}: {:s}]: {:s}'.format(vp_idx + 1, vp_info['row_index'], vp_info['expr_id'], h5_fpath))
             if (vp_info_lst[0]['vp_chr'] != vp_info['vp_chr']) or (np.abs(vp_info_lst[0]['vp_pos'] - vp_info['vp_pos']) > 1e6):
                 print('[w] Viewpoint is far away compared to others runs being loaded.')
 
         # load from hdf5
-        with h5py.File(tsv_fname, 'r') as h5_fid:
-            # header_lst = list(h5_fid[target_field + '_header_lst'][()]) python2
-            header_lst = [hdr.decode() for hdr in h5_fid[target_field + '_header_lst']]
+        with h5py.File(h5_fpath, 'r') as h5_fid:
+            # python2: header_lst = list(h5_fid[target_field + '_header_lst'][()])
+            header_lst = [hdr.decode('UTF-8') for hdr in h5_fid[target_field + '_header_lst']]
             frg_prt = pd.DataFrame(h5_fid[target_field][()], columns=header_lst)
 
         # only preserve requested columns
@@ -352,15 +227,17 @@ def load_dataset(vp_info_lst, target_field='frg_np', data_path='./datasets', ver
             is_nei = (frg_prt['chr'] == vp_info['vp_chr']) & \
                      (np.abs(frg_prt['pos'] - vp_info['vp_pos']) < vp_width / 2.0)
             frg_prt = frg_prt.loc[~is_nei].reset_index(drop=True)
+            print('\t{:,d} frag-ends are removed.'.format(np.sum(is_nei)))
+            del is_nei
 
         # report stats
         if verbose:
             is_cis = frg_prt['chr'] == vp_info['vp_chr']
-            is_lcl = is_cis & \
-                     (np.abs(frg_prt['pos'] - vp_info['vp_pos']) < 100e3)
+            is_far = is_cis & ~ overlap([vp_info['vp_chr'], vp_info['vp_be'], vp_info['vp_en']], frg_prt[['chr', 'pos', 'pos']].values, offset=50e3)
             print('\tData stats are:')
-            print('\t\t #fe_cis: {:0,.0f}'.format(np.sum(frg_prt.loc[ is_cis, '#read'])))
-            print('\t\t #fe_trs: {:0,.0f}'.format(np.sum(frg_prt.loc[~is_cis, '#read'])))
+            print('\t\t   #fragment (far): {:0,.0f}'.format(np.sum(frg_prt.loc[ is_far, '#read'])))
+            print('\t\t   #fragment (cis): {:0,.0f}'.format(np.sum(frg_prt.loc[ is_cis, '#read'])))
+            print('\t\t #fragment (trans): {:0,.0f}'.format(np.sum(frg_prt.loc[~is_cis, '#read'])))
 
         if vp_idx == 0:
             frg_cmb = frg_prt.copy()
@@ -382,7 +259,6 @@ def load_dataset(vp_info_lst, target_field='frg_np', data_path='./datasets', ver
                 frg_cmb = frg_cmb.loc[rf_inv, :].reset_index(drop=True)
                 frg_cmb['#read'] = rf_nrd
                 del rf_inv, rf_idx, rf_nrd
-                gc.collect()
         if verbose:
             print('\tCurrent memory usage: {:0,.2f}GB'.format(frg_cmb.memory_usage().sum() / 1e9))
 
@@ -393,7 +269,7 @@ def load_dataset(vp_info_lst, target_field='frg_np', data_path='./datasets', ver
 
 def perform_sigtest(observed, smoothing_kernel, background=None, n_epoch=1000, nz_only=False, replacement=False):
     if (observed.ndim != 1) or (background.ndim != 1):
-        raise Exception('Inconsistant data are provided.')
+        raise Exception('Inconsistent data are provided.')
     n_obs = len(observed)
     if background is None:
         background = observed.copy()
@@ -421,57 +297,6 @@ def perform_sigtest(observed, smoothing_kernel, background=None, n_epoch=1000, n
     # observed_smoothed[observed_smoothed < 0] = 0
     # bkgnd_mat[bkgnd_mat < 0] = 0
     return observed_smoothed, bkgnd_mat
-
-
-def get_from_hpc(server_name, source_file, target_dir, verbose=False):
-    import os
-    import subprocess
-
-    src_fname = server_name + ':' + source_file
-    tar_path = os.path.expanduser(target_dir)
-    if verbose:
-        print('[i] Downloading: {:s}'.format(os.path.basename(src_fname)))
-        print('\tFrom: {:s}'.format(src_fname))
-        print('\t  To: {:s}'.format(tar_path))
-    cmd_str = ['rsync', src_fname, tar_path]
-    proc_dl = subprocess.Popen(cmd_str, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    # for out_line in iter(proc_dl.stdout.readline, b''):
-    #     print(out_line.rstrip())
-    stdout, stderr = proc_dl.communicate()
-    return proc_dl, stdout, stderr
-
-
-def str2crd(str_crd, genome='hg19'):
-    chr_lst = get_chr_info(genome=genome, property='chr_name')
-    n_chr = len(chr_lst)
-    chr2nid = dict(zip(chr_lst, range(1, n_chr + 1)))
-
-    items = str_crd.split(':')
-    if len(items) == 1:
-        return [chr2nid[items[0]]]
-    else:
-        return [chr2nid[items[0]]] + [float(x) for x in items[1].split('-')]
-
-
-def slice_by_index(index, arr, assert_sorted=True, do_copy=True):
-    def get_item(items, copy):
-        if copy:
-            return items.copy()
-        else:
-            return items
-
-    n_row = index.shape[0]
-    assert n_row == arr.shape[0]
-    if assert_sorted:
-        assert np.all(np.diff(index) >= 0)
-
-    # looping over elements
-    idx_be = 0
-    for idx_en in range(1, n_row):
-        if index[idx_be] != index[idx_en]:
-            yield get_item(arr[idx_be:idx_en], copy=do_copy)
-            idx_be = idx_en
-    yield get_item(arr[idx_be:], copy=do_copy)
 
 
 class OnlineStats(object):
@@ -535,25 +360,4 @@ def get_read(input_fid):
     yield read
 
 
-def number_to_si(value, format='{:0.2f}'):
-    # inspired by: https://stackoverflow.com/questions/10969759/python-library-to-convert-between-si-unit-prefixes
-    _prefix = {'y': 1e-24,  # yocto
-               'z': 1e-21,  # zepto
-               'a': 1e-18,  # atto
-               'f': 1e-15,  # femto
-               'p': 1e-12,  # pico
-               'n': 1e-9,  # nano
-               'u': 1e-6,  # micro
-               'm': 1e-3,  # mili
-               'c': 1e-2,  # centi
-               'd': 1e-1,  # deci
-               'k': 1e3,  # kilo
-               'M': 1e6,  # mega
-               'G': 1e9,  # giga
-               'T': 1e12,  # tera
-               'P': 1e15,  # peta
-               'E': 1e18,  # exa
-               'Z': 1e21,  # zetta
-               'Y': 1e24,  # yotta
-               }
-    np.searchsorted(_prefix[:, 1], value)
+
