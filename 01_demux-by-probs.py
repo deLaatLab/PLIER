@@ -99,7 +99,7 @@ vpi_pd.to_csv(vpi_fpath, sep='\t', index=False, compression=None)
 
 # make file handles
 print('Making BAM file handles from: {:s}'.format(inp_args.input_bam))
-makedirs(path.dirname(inp_args.output_dir), exist_ok=True)
+makedirs(inp_args.output_dir, exist_ok=True)
 with pysam.AlignmentFile(inp_args.input_bam, 'rb') as source_fid:
     out_fids = []
     for ei in range(n_expr):

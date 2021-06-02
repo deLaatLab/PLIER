@@ -39,8 +39,8 @@ arg_parser.add_argument('--expr_index', required=True, type=int, help='Index of 
 arg_parser.add_argument('--viewpoints', default='./viewpoints/vp_info.tsv', type=str, help='Path to the VP information file')
 arg_parser.add_argument('--dataset_dir', default='./datasets/')
 arg_parser.add_argument('--output_id', help='An ID used for output (i.e., the PDF plot and bin enrichment scores)', default=None, type=str)
-arg_parser.add_argument('--output_dir', default='./outputs/04_proximity-enrichments/', help='output dir')
-arg_parser.add_argument('--plot_dir', default='./plots/04_proximity-enrichments/', help='plots dir')
+arg_parser.add_argument('--output_dir', default='./outputs/proximity-enrichments/', help='output dir')
+arg_parser.add_argument('--plot_dir', default='./plots/proximity-enrichments/', help='plots dir')
 arg_parser.add_argument('--min_as_captured', help='Minimum coverage to be considered as captured.', default=1, type=float)
 arg_parser.add_argument('--gs_width', help='Width of applied Gaussian kernel.', default=0.75, type=float)
 arg_parser.add_argument('--bin_width', help='Width of bins used to discretize each chromosome.', default=75000, type=float)
@@ -48,7 +48,7 @@ arg_parser.add_argument('--roi_width', help='Width of region around VP where sig
 arg_parser.add_argument('--n_epoch', help='Number of random permutation.', default=1000, type=int)
 arg_parser.add_argument('--n_step', help='Number of bins per gaussian.', default=31, type=int)
 arg_parser.add_argument('--n_topbins', help='Number of top-enriched bins to be stored in the output.', default=3000, type=int)
-arg_parser.add_argument('--down_sample', help='Used for downsampling experiments', default=None, type=str)
+arg_parser.add_argument('--downsample', help='Used for downsampling experiments', default=None, type=str)
 arg_parser.add_argument('--store_all_enrichments', action='store_true')
 arg_parser.add_argument('--draw_plot', action='store_true')
 arg_parser.add_argument('--overwrite', action='store_true')
@@ -68,7 +68,7 @@ plot_fpath = os.path.join(inp_args.plot_dir, inp_args.output_id + '.pdf')
 out_fpath_all = os.path.join(inp_args.output_dir, inp_args.output_id + '.allbins.tsv.gz')
 out_fpath_top = os.path.join(inp_args.output_dir, inp_args.output_id + '.topbins.tsv.gz')
 if not inp_args.overwrite and os.path.isfile(out_fpath_top):
-    print('[i] Output file is found. Stopping the execution: {:s}'.format(plot_fpath))
+    print('[i] Output file is found. Stopping the execution: {:s}'.format(out_fpath_top))
     exit(0)
 
 # reporting the stats
@@ -105,10 +105,10 @@ del data_pd
 vp_info['#rd_all'] = np.sum(data[:, 2])
 
 # Downsampling, if requested
-if inp_args.down_sample:
+if inp_args.downsample is not None:
     # TODO: Adding other types of downsampling, such as #captures
-    assert inp_args.down_sample[:4] == 'nmap'
-    n_map = int(float(inp_args.down_sample[4:]))
+    assert inp_args.downsample[:4] == 'nmap'
+    n_map = int(float(inp_args.downsample[4:]))
     print('Downsampling #mapped: From {:,d} mapped fragment to {:0,.0f} fragment.'.format(np.sum(data[:, 2]), n_map))
     idx_set = np.repeat(np.arange(data.shape[0]), data[:, 2])
     ds_set = np.random.choice(idx_set, size=n_map, replace=False)
@@ -222,9 +222,9 @@ for chr_nid in np.unique(bin_info['chr']):
     is_sel = bin_info['chr'] == chr_nid
     bin_type = 'cis' if chr_nid == vp_info['vp_chr'] else 'trans'
     print('Convolving {:5s} ({:5s}), '.format(chr_lst[chr_nid-1], bin_type) +
-          '#res={:7,.1f}k, '.format(np.sum(bin_info.loc[is_sel, '#restriction']) / 1e3) +
-          '#read={:5,.1f}k, '.format(np.sum(bin_info.loc[is_sel, '#read']) / 1e3) +
-          '#cpt={:5.0f} '.format(np.sum(bin_info.loc[is_sel, '#capture'])), end='')
+          '#res={:7.1f}k, '.format(np.sum(bin_info.loc[is_sel, '#restriction']) / 1e3) +
+          '#read={:7.1f}k, '.format(np.sum(bin_info.loc[is_sel, '#read']) / 1e3) +
+          '#cpt={:6.0f} '.format(np.sum(bin_info.loc[is_sel, '#capture'])), end='')
 
     # Compute score significance
     cur_time = time()
@@ -363,10 +363,13 @@ if inp_args.store_all_enrichments:
 # Output top windows
 is_roi = overlap([vp_info['vp_chr'], vp_info['vp_be'], vp_info['vp_en']],
                  bin_info[['chr', 'pos', 'pos']].values, offset=inp_args.roi_width)
-bin_nroi = bin_info.loc[~is_roi].sort_values(by='#cpt_zscr', ascending=False).reset_index(drop=True)[:inp_args.n_topbins]
+is_enriched = bin_info['#cpt_zscr'] >= 5.0
+bin_nroi = bin_info.loc[(~is_roi) & is_enriched].sort_values(by='#cpt_zscr', ascending=False).reset_index(drop=True)
+del is_roi, is_enriched
 os.makedirs(os.path.dirname(out_fpath_top), exist_ok=True)
 bin_nroi.to_csv(out_fpath_top, sep='\t', na_rep='nan', index=False)
-assert bin_nroi['#cpt_zscr'].iat[-1] < 8.0, 'Some "top bins" could be cropped, increase #top_bins that are stored (current={:d}).'.format(inp_args.n_topbins)
+print('{:d} bins with elevated #captures (i.e., z-score >= 5.0) are stored in: {:s}'.format(len(bin_nroi), out_fpath_top))
+# assert bin_nroi['#cpt_zscr'].iat[-1] < 8.0, 'Some "top bins" could be cropped, increase #top_bins that are stored (current={:d}).'.format(inp_args.n_topbins)
 
 # Plotting
 if inp_args.draw_plot:

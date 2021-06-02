@@ -22,8 +22,8 @@ pd.options.display.min_rows = 20
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('--viewpoints', default='./viewpoints/vp_info.tsv', type=str, help='Path to the VP information file')
 arg_parser.add_argument('--expr_indices', default='-1', type=str, help='Limits processing to specific experiment indices (sep=",")')
-arg_parser.add_argument('--input_dir', default='./outputs/04_proximity-enrichments/')
-arg_parser.add_argument('--output_dir', default='./outputs/05_merged-enrichments/')
+arg_parser.add_argument('--input_dir', default='./outputs/proximity-enrichments/')
+arg_parser.add_argument('--output_dir', default='./outputs/merged-enrichments/')
 arg_parser.add_argument('--search_pattern', default='{ExprID}_*_bw{BinWidth:0.0f}kb_*.topbins.tsv.gz', type=str)
 arg_parser.add_argument('--bin_widths', default='5e3,75e3', type=str)
 # arg_parser.add_argument('--gs_widths', default='0.75', type=str)
@@ -57,7 +57,7 @@ for ei, (expr_idx, vp_info) in enumerate(vp_infos.iterrows()):
     # loop over parameters
     enrichments = []
     for bw_idx, bin_width in enumerate(inp_args.bin_widths):
-        print('\t\tbin_width={:3.0f}kb: '.format(bin_width / 1e3), end='')
+        print('\tbin_width={:3.0f}kb: '.format(bin_width / 1e3), end='')
 
         # find the proper bin enrichment file
         file_pattern = os.path.join(
@@ -74,7 +74,9 @@ for ei, (expr_idx, vp_info) in enumerate(vp_infos.iterrows()):
 
         # load the enrichment file
         bin_pd = pd.read_csv(enrichment_files[0], delimiter='\t')
-        assert bin_pd.shape[0] > 0, 'Enrichment file is empty: {:s}'.format(enrichment_files[0])
+        if bin_pd.shape[0] == 0:
+            print('Enrichment file is empty: {:s}'.format(enrichment_files[0]))
+            continue
 
         # select enriched bins
         is_sig = bin_pd['#cpt_zscr'] >= inp_args.min_enrichment

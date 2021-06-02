@@ -1,5 +1,4 @@
 # /usr/bin/env python3
-# python3 -u 05_select_significant_enrichments_as_calls.py --viewpoints=./vp_info_sarcoma.tsv --enrichment_file=./outputs/05_proximity-enriched-bins_neighbor-merged_v1.0_All_neiDst1.0m_minScr5.00.tsv.gz
 
 import os
 import argparse
@@ -18,8 +17,8 @@ pd.options.display.max_rows = 500
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('--viewpoints', default='./viewpoints/vp_info.tsv', type=str, help='Path to the VP information file')
 arg_parser.add_argument('--expr_indices', default='-1', type=str, help='Limits processing to specific experiment indices (sep=",")')
-arg_parser.add_argument('--input_dir', default='./outputs/05_merged-enrichments/')
-arg_parser.add_argument('--output_dir', default='./outputs/06_significant_calls/')
+arg_parser.add_argument('--input_dir', default='./outputs/merged-enrichments/')
+arg_parser.add_argument('--output_dir', default='./outputs/significant_calls/')
 arg_parser.add_argument('--significance_threshold', default=8.0, type=float)
 arg_parser.add_argument('--significance_threshold_cis', default=16.0, type=float)
 arg_parser.add_argument('--bin_widths', default='5e3,75e3')
@@ -48,7 +47,7 @@ vp_infos = vp_infos.loc[inp_args.expr_indices].reset_index(drop=True)
 print('{:,d} experiments will be considered.'.format(len(vp_infos)))
 
 # selecting significant enrichments
-significant_calls = []
+calls = []
 for ei, (expr_idx, vp_info) in enumerate(vp_infos.iterrows()):
 
     # load enrichment file
@@ -99,47 +98,52 @@ for ei, (expr_idx, vp_info) in enumerate(vp_infos.iterrows()):
         call['call_score'] = repr_call[inp_args.enrichment_score].round(2)
         call['bin_widths'] = ';'.join(['{:0.0f}'.format(x / 1e3) for x in np.unique(params_pd['bin_width'])]) + 'k'
         call['#bin_widths'] = bw_grp.ngroups
-        significant_calls.append(call.copy())
+        calls.append(call.copy())
         del call
-significant_calls = pd.DataFrame(significant_calls, index=range(len(significant_calls)))
+
+# select enriched calls over multiple bin_widths
+significant_calls = pd.DataFrame(calls, index=range(len(calls)))
+is_sig = significant_calls['#bin_widths'] >= inp_args.min_n_binw
+significant_calls = significant_calls.loc[is_sig].reset_index(drop=True)
 
 # =======================
 # checking for amplification events
 # mark overlapping calls
-call_crd = significant_calls[['call_chr', 'call_beg', 'call_end']].values
-rgn_idxs = np.arange(call_crd.shape[0])
-for ci in range(call_crd.shape[0]):
-    has_ol = overlap(call_crd[ci], call_crd, offset=1e6)
-    if np.sum(has_ol) > 1:
-        is_in = np.isin(rgn_idxs, rgn_idxs[has_ol])  # vp_calls.loc[has_ol]
-        rgn_idxs[is_in] = np.min(rgn_idxs[is_in])  # vp_calls.loc[is_in]
-significant_calls['call_idx'] = np.unique(rgn_idxs, return_inverse=True)[1]
-del call_crd, rgn_idxs
+if len(significant_calls) > 0:
+    significant_calls['sv_type'] = ''
+    call_crd = significant_calls[['call_chr', 'call_beg', 'call_end']].values
+    rgn_idxs = np.arange(call_crd.shape[0])
+    for ci in range(call_crd.shape[0]):
+        has_ol = overlap(call_crd[ci], call_crd, offset=1e6)
+        if np.sum(has_ol) > 1:
+            is_in = np.isin(rgn_idxs, rgn_idxs[has_ol])  # vp_calls.loc[has_ol]
+            rgn_idxs[is_in] = np.min(rgn_idxs[is_in])  # vp_calls.loc[is_in]
+    significant_calls['call_idx'] = np.unique(rgn_idxs, return_inverse=True)[1]
+    del call_crd, rgn_idxs
 
-# mark nearby VPs
-vp_crd = significant_calls[['vp_chr', 'vp_be', 'vp_en']].values
-vp_idx = np.arange(vp_crd.shape[0])
-for vi in range(vp_crd.shape[0]):
-    has_ol = overlap(vp_crd[vi], vp_crd, offset=2e6)
-    if np.sum(has_ol) > 1:
-        is_in = np.isin(vp_idx, vp_idx[has_ol])  # vp_calls.loc[has_ol]
-        vp_idx[is_in] = np.min(vp_idx[is_in])  # vp_calls.loc[is_in]
-significant_calls['vp_idx'] = np.unique(vp_idx, return_inverse=True)[1]
-del vp_crd, vp_idx
-# significant_calls = significant_calls.sort_values(by=['call_idx', 'vp_gene']).reset_index(drop=True)
+    # mark nearby VPs
+    vp_crd = significant_calls[['vp_chr', 'vp_be', 'vp_en']].values
+    vp_idx = np.arange(vp_crd.shape[0])
+    for vi in range(vp_crd.shape[0]):
+        has_ol = overlap(vp_crd[vi], vp_crd, offset=2e6)
+        if np.sum(has_ol) > 1:
+            is_in = np.isin(vp_idx, vp_idx[has_ol])  # vp_calls.loc[has_ol]
+            vp_idx[is_in] = np.min(vp_idx[is_in])  # vp_calls.loc[is_in]
+    significant_calls['vp_idx'] = np.unique(vp_idx, return_inverse=True)[1]
+    del vp_crd, vp_idx
+    # significant_calls = significant_calls.sort_values(by=['call_idx', 'vp_gene']).reset_index(drop=True)
 
-# find amplification events
-significant_calls['sv_type'] = ''
-for rgn_idx, rgn_pd in significant_calls.groupby('call_idx'):
-    n_vp = len(np.unique(rgn_pd['vp_idx']))
-    if n_vp >= inp_args.min_n_vp:
-        significant_calls.loc[rgn_pd.index, 'sv_type'] = 'amplification'
-significant_calls.drop(columns=['call_idx', 'vp_idx'], inplace=True)
+    # find amplification events
+    for rgn_idx, rgn_pd in significant_calls.groupby('call_idx'):
+        n_vp = len(np.unique(rgn_pd['vp_idx']))
+        if n_vp >= inp_args.min_n_vp:
+            significant_calls.loc[rgn_pd.index, 'sv_type'] = 'amplification'
+    significant_calls.drop(columns=['call_idx', 'vp_idx'], inplace=True)
 
 # storing the output
 out_fpath = os.path.join(
     inp_args.output_dir,
-    '{:s}_significant-calls.tsv.gz'.format(significant_calls['sample_id'].iat[0])
+    '{:s}_significant-calls.tsv.gz'.format(vp_infos['sample_id'].iat[0])
 )
 os.makedirs(os.path.dirname(out_fpath), exist_ok=True)
 significant_calls.to_csv(out_fpath, sep='\t', na_rep='nan', index=False)

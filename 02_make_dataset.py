@@ -140,7 +140,7 @@ for ei, exp_idx in enumerate(inp_args.expr_indices):
         del is_mapped
 
     # correct mapping orientations
-    assert np.array_equal(bam_pd['seq_order'].unique(), [1, 2])
+    assert np.array_equal(np.unique(bam_pd['seq_order']), [1, 2])
     # Orientation is checked in IGV, no need to correct the R2 reads
     # bam_pd.loc[bam_pd['seq_order'] == 2, 'map_strand'] *= -1
 
