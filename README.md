@@ -26,7 +26,7 @@ The PLIER pipeline requires the following tools:
 
 The user can run the following command to make sure all required packages are installed:
 ```
-pip3 install --upgrade numpy pandas h5py matplotlib pysam scikit-learn python-Levenshtein
+pip3 install numpy pandas h5py matplotlib pysam scikit-learn python-Levenshtein
 ```
 
 ## PLIER's paths
@@ -148,4 +148,8 @@ The related meta-data for each experiment will be stored (by default) in `<SAMPL
 ## Contact & questions
 For any inquiry please contact Amin Allahyar at a{DOT}allahyar{AT}hubrecht{DOT}eu.
 
+
+## License for research or commercial use
+This method is protected by a patent application.
+Please contact Cergentis [info@cergentis.com](info@cergentis.com) to discuss a research or commercial license if you want to make use of the method.
 
