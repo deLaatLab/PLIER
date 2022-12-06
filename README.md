@@ -151,5 +151,5 @@ For any inquiry please contact Amin Allahyar at a{DOT}allahyar{AT}hubrecht{DOT}e
 
 ## License for research or commercial use
 This method is protected by a patent application.
-Please contact Cergentis [info@cergentis.com](info@cergentis.com) to discuss a research or commercial license if you want to make use of the method.
+Please contact Cergentis [info@cergentis.com](mailto:info@cergentis.com) to discuss a research or commercial license if you want to make use of the method.
 
