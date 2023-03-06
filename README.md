@@ -148,6 +148,10 @@ The related meta-data for each experiment will be stored (by default) in `<SAMPL
 ## Contact & questions
 For any inquiry please contact Amin Allahyar at a{DOT}allahyar{AT}hubrecht{DOT}eu.
 
+## Citation and DOI:
+In case you used an analysis or result from this work, please cite:
+https://doi.org/10.1038/s41467-021-23695-8
+
 
 ## License for research or commercial use
 This method is protected by a patent application.
